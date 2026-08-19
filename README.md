@@ -156,6 +156,29 @@ Results, with full transcripts: [`docs/TEST_CASES.md`](docs/TEST_CASES.md).
 
 ---
 
+## Rebuilding the demo video
+
+Optional, and unrelated to running the bot. Needs `npm i playwright` and an
+`ELEVENLABS_API_KEY`.
+
+```bash
+# 1. narration -> mp3 + word-level timings
+ELEVENLABS_API_KEY=... python demo/voiceover.py
+
+# 2. drive the real UI in a headless browser and record 1080p
+node demo/drive.mjs --video     # backend must be on :8000
+
+# 3. slice to the narration, freeze-pad, mux, burn captions
+python demo/assemble.py         # -> demo/edit/final.mp4
+```
+
+The recorder paces each beat to its narration length, so the footage matches the
+voiceover without long frozen stretches. Captions are drawn as PNG cards and
+composited with `overlay`; this machine's ffmpeg has no libass, so the
+`subtitles` and `drawtext` filters are unavailable.
+
+---
+
 ## Assumptions
 
 1. **Only the four facts in the brief are known.** Project, location,

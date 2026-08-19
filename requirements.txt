@@ -4,3 +4,8 @@ httpx>=0.27
 python-dotenv>=1.0
 pydantic>=2.7
 pytest>=8.0
+
+# Demo-video tooling only (demo/voiceover.py, demo/assemble.py). Not needed to
+# run the bot. Pillow renders the caption cards, because the ffmpeg on the build
+# machine had no libass/freetype and so no subtitles or drawtext filter.
+Pillow>=10.0
