@@ -8,7 +8,7 @@
  */
 
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -38,6 +38,31 @@ const SCRIPT = [
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* Pace the capture to the voiceover. Without this the recording is about fifty
+ * seconds against three minutes of narration, and the edit has to freeze-pad
+ * most of it. Reading the real per-beat durations means the footage already
+ * matches and the picture keeps moving while the narrator talks. */
+const VO_TIMINGS = path.join(ROOT, "demo", "vo", "timings.json");
+const voDuration = existsSync(VO_TIMINGS)
+  ? Object.fromEntries(
+      JSON.parse(readFileSync(VO_TIMINGS, "utf8")).map((t) => [t.beat, t.duration]))
+  : {};
+
+/* Sit on a beat until its narration would have finished. Scrolls the given
+ * pane a little at a time so a long beat is not a frozen screenshot. */
+async function holdBeat(page, name, startedAt, selector) {
+  const target = (voDuration[name] ?? 3) * 1000 + 400;
+  const deadline = startedAt + target;
+  while (Date.now() < deadline) {
+    const left = deadline - Date.now();
+    if (selector && left > 1400) {
+      await page.locator(selector).evaluate((n) => { n.scrollTop += 46; })
+        .catch(() => {});
+    }
+    await sleep(Math.min(320, Math.max(60, left)));
+  }
+}
 
 /* Type at a human cadence so the recording does not look scripted. */
 async function humanType(page, text) {
@@ -72,11 +97,19 @@ page.on("pageerror", (e) => errors.push(`PAGEERROR ${e.message}`));
 
 await page.goto(URL, { waitUntil: "networkidle" });
 await page.waitForSelector("#conn-status[data-state='ok']", { timeout: 20000 });
-await sleep(VIDEO ? 1500 : 600);
 mark("intro");
+const introAt = Date.now();
 await page.screenshot({ path: path.join(SHOTS, "00-idle.png") });
+if (VIDEO) await holdBeat(page, "intro", introAt, ".rail");
+else await sleep(600);
 
 for (const step of SCRIPT) {
+  // The agent decides when the conversation is over, so it can close earlier
+  // than the script expects. Stop feeding it messages once it has.
+  if (await page.locator("#input").isDisabled()) {
+    console.warn(`agent closed the conversation before: ${step.text}`);
+    break;
+  }
   mark(step.shot);
   // Count only settled agent output. The typing placeholder is also a
   // .msg.agent, so counting it would satisfy the wait before the reply lands.
@@ -92,28 +125,37 @@ for (const step of SCRIPT) {
       { timeout: 90000 }
     )
     .catch(() => console.warn(`timed out waiting after: ${step.text}`));
-  await sleep(VIDEO ? 1300 : 400);
   await page.screenshot({ path: path.join(SHOTS, `${step.shot}.png`) });
+  if (VIDEO) await holdBeat(page, step.shot, beatStart, null);
+  else await sleep(400);
 }
 
-// Close out: generate the lead record and let it settle on screen.
-if (await page.locator("#analytics-btn").isVisible()) {
+// Close out: generate the lead record and let it settle on screen. If the agent
+// has not closed the conversation itself, end it by hand so the demo always
+// reaches the payoff.
+if (!(await page.locator("#analytics-btn").isVisible())) {
+  await page.click("#end-btn");
+}
+{
   await sleep(VIDEO ? 800 : 200);
   mark("analytics");
   await page.click("#analytics-btn");
+  const analyticsAt = Date.now();
   await page.waitForSelector(".dossier-groups", { timeout: 90000 });
-  await sleep(VIDEO ? 2000 : 600);
   await page.screenshot({ path: path.join(SHOTS, "11-analytics.png") });
+  if (VIDEO) await holdBeat(page, "analytics", analyticsAt, ".dossier");
+  else await sleep(600);
   mark("json");
+  const jsonAt = Date.now();
   await page.locator("details.raw summary").click();
-  await sleep(VIDEO ? 1800 : 400);
+  if (VIDEO) await holdBeat(page, "json", jsonAt, ".dossier");
+  else await sleep(400);
   await page.screenshot({ path: path.join(SHOTS, "12-json.png"), fullPage: !VIDEO });
-} else {
-  console.warn("conversation did not end; no analytics captured");
 }
 
 mark("outro");
-await sleep(VIDEO ? 1200 : 0);
+const outroAt = Date.now();
+if (VIDEO) await holdBeat(page, "outro", outroAt, ".log");
 await ctx.close();
 await b.close();
 

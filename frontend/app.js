@@ -22,6 +22,7 @@ const el = {
   analyticsBtn: $("#analytics-btn"),
   analyticsSlot: $("#analytics-slot"),
   resetBtn: $("#reset-btn"),
+  endBtn: $("#end-btn"),
   settings: $("#settings"),
   settingsBtn: $("#settings-btn"),
   apiBase: $("#api-base"),
@@ -184,6 +185,7 @@ async function send(text) {
 
 function markEnded(outcome) {
   ended = true;
+  el.endBtn.disabled = true;
   el.endedBar.hidden = false;
   el.endedOutcome.textContent = outcome || "closed";
   el.input.disabled = true;
@@ -387,6 +389,7 @@ function resetConversation() {
   el.analyticsSlot.innerHTML =
     '<p class="empty">Generated after the conversation ends. End the chat, or say goodbye, then generate.</p>';
   el.analyticsBtn.textContent = "Generate lead record";
+  el.endBtn.disabled = false;
   el.input.value = "";
   setBusy(false);
   addMessage("agent",
@@ -411,6 +414,15 @@ el.input.addEventListener("input", () => {
 });
 
 el.resetBtn.addEventListener("click", resetConversation);
+
+// Ending by hand. The agent closes the conversation itself when the customer
+// says goodbye, but a reviewer may want the lead record at any point — and a
+// scripted demo needs the ending to be deterministic.
+el.endBtn.addEventListener("click", () => {
+  if (!sessionId) return;
+  if (!ended) markEnded("ended_manually");
+  generateAnalytics();
+});
 el.analyticsBtn.addEventListener("click", generateAnalytics);
 
 el.settingsBtn.addEventListener("click", () => {
