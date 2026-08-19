@@ -44,8 +44,8 @@ Three things I would call out:
    tool-chain that would have shown a customer a bare goodbye after a failed
    booking. The build log at the bottom of `PROGRESS.md` has the sequence.
 
-The frontend is static and runs on GitHub Pages against a deployed backend; the
-README covers both that and running it locally with one command.
+The frontend is plain HTML, CSS and JS with no build step, and the backend serves
+it, so the README's one command runs the whole thing.
 
 Happy to walk through any of it.
 

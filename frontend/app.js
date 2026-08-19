@@ -30,8 +30,8 @@ const el = {
 
 /* ── Endpoint resolution ───────────────────────────────────────────────
    Priority: ?api= in the URL, then a saved value, then the page's own origin
-   (true when FastAPI serves this file), then a local dev backend. GitHub Pages
-   hits the last two, which is why the endpoint box exists. */
+   (true when FastAPI serves this file), then a local dev backend. The last case
+   covers opening index.html straight off disk, which is why the box exists. */
 const DEFAULT_LOCAL = "http://127.0.0.1:8000";
 
 function resolveBase() {

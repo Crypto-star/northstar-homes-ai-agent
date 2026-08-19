@@ -32,7 +32,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done & verified.
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
 | P2.1 | Text-based conversational bot | [x] | `POST /api/chat` |
-| P2.2 | Simple web interface | [x] | `frontend/` — static HTML/CSS/JS, no build, GitHub Pages ready |
+| P2.2 | Simple web interface | [x] | `frontend/` — static HTML/CSS/JS, no build step |
 | P2.3 | Accept customer messages | [x] | `ChatRequest` |
 | P2.4 | Respond using final prompt | [x] | `backend/prompt.py` reads `PROMPT.md` at runtime — one source of truth |
 | P2.5 | Remember info shared during conversation | [x] | full transcript replayed each turn; `memory_and_contradiction` explicitly tests recall of a *changed* budget and the name |

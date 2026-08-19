@@ -336,7 +336,7 @@ def api_health() -> dict:
 # Serve the static UI from the same origin so `uvicorn` alone runs the whole demo.
 # Mounted last, at the root, so every /api route above still wins. html=True makes
 # "/" resolve to index.html while keeping the relative style.css / app.js paths
-# working — which is also how GitHub Pages will serve them.
+# working.
 FRONTEND = ROOT / "frontend"
 if FRONTEND.is_dir():
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")

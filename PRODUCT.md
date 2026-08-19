@@ -58,7 +58,7 @@ property portal.
    in English, Hindi, and Hinglish, plus the hard cases (discount pressure,
    do-not-contact) that prove the prompt works.
 4. **Static and portable.** The frontend is plain HTML, CSS, and JS with no build
-   step, so it hosts on GitHub Pages and points at any backend URL.
+   step and no framework, and it can point at any backend URL.
 5. **Every fact on screen comes from the backend.** The UI never hardcodes a
    price. It reads `/api/config`. A demo that can drift from the knowledge base
    defeats the point of the prompt.

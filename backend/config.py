@@ -23,7 +23,8 @@ REASONING_EFFORT = os.getenv("REASONING_EFFORT", "none")
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.4"))
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "700"))
 
-# Comma-separated origins, or "*" for any. GitHub Pages needs the Pages origin.
+# Comma-separated origins, or "*" for any. Only matters if the UI is served
+# from somewhere other than this app.
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 
 # Flip to "1" to force every booking attempt to fail — used by the booking-failure

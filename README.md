@@ -16,7 +16,7 @@ Built for the Huvo AI Forward Deployed Engineer assignment.
 |---|---|
 | Backend | FastAPI (Python 3.11+) |
 | Model | `qwen/qwen3.6-27b` on Groq |
-| Frontend | Static HTML, CSS and JS — no build step, hosts on GitHub Pages |
+| Frontend | Static HTML, CSS and JS — no build step, no framework |
 | Memory | In-process session store (full transcript replayed to the model) |
 
 ---
@@ -39,18 +39,18 @@ so that one command runs the whole thing.
 
 Get a free Groq key at [console.groq.com/keys](https://console.groq.com/keys).
 
-### Hosting the UI on GitHub Pages
+### Pointing the UI at a different backend
 
-`frontend/` is fully static. Publish that folder with Pages, deploy the backend
-anywhere (Render, Railway, Fly, a VM), and point the page at it either through
-the **Endpoint** button in the header or with a query parameter:
+The page defaults to whatever origin served it, which is what you want for the
+command above. If you need it to talk to a backend somewhere else — a different
+port, or `frontend/index.html` opened straight off disk — use the **Endpoint**
+button in the header, or a query parameter:
 
 ```
-https://<user>.github.io/<repo>/?api=https://your-backend.example.com
+http://127.0.0.1:8000/?api=http://127.0.0.1:9000
 ```
 
-The value is saved to `localStorage`. Set `CORS_ORIGINS` in `.env` to your Pages
-origin rather than leaving it as `*`.
+The value is saved to `localStorage`.
 
 ---
 
@@ -199,7 +199,7 @@ composited with `overlay`; this machine's ffmpeg has no libass, so the
 ## Known limitations
 
 - **Sessions are in memory.** A restart loses every conversation, and it will not
-  survive more than one server process. Real deployment wants Redis or Postgres
+  survive more than one server process. Anything long-lived wants Redis or Postgres
   behind the same `Session` interface — the store is the only thing that changes.
 - **No streaming.** Replies arrive whole, so a long turn shows a typing indicator
   for a second or two.
