@@ -65,8 +65,8 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done & verified.
 | S3 | Source code | [x] `backend/`, `frontend/` |
 | S4 | README (run, assumptions, limitations, AI tools) | [x] `README.md` |
 | S5 | `.env.example` | [x] |
-| S6 | Demo video | [x] `demo/edit/final.mp4` — 3:10, 1920x1080, ElevenLabs voiceover, 83 burned-in captions. Needs uploading to Drive/YouTube for the link. |
-| S7 | Email to aditi@huvo.ai, CC nikhil/vaibhav/rohit@huvo.ai | [~] draft in `docs/EMAIL.md`; needs the video link pasting in |
+| S6 | Demo video | [x] `demo/edit/final.mp4` — 3:10, 1920x1080, ElevenLabs voiceover, 83 burned-in captions. Uploaded and linked in the submission. |
+| S7 | Email to aditi@huvo.ai, CC nikhil/vaibhav/rohit@huvo.ai | [x] sent |
 
 ## Build log
 - Read PDF, confirmed Groq `qwen/qwen3.6-27b` (131k ctx); `reasoning_effort:"none"` suppresses `<think>`.
@@ -78,4 +78,6 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done & verified.
 - Found the agent chaining book→escalate→end with no spoken turn on the system-down path. Added a forced tools-off reply.
 - Recorded the demo headless at 1080p. Two capture bugs found and fixed: an off-by-one wait predicate that made every beat sit through a 90-second timeout, and a fixed script that broke when the agent closed the conversation a turn early.
 - Local ffmpeg turned out to be built without libass or freetype, so the `subtitles`, `ass` and `drawtext` filters do not exist. Captions are rendered as PNG cards with Pillow and composited with `overlay` instead — no system changes needed.
-- **Final: 11/11 scenarios pass**, zero leaked tool markup, demo video rendered.
+- Removed the GitHub Pages / hosting references throughout: the brief never asked for a deployment, and a Pages link with no backend behind it reads worse than none.
+- Final verification before submission: cloned the public repo fresh, installed from `requirements.txt`, booted the server, and re-ran the whole suite from that clean checkout — **11/11 pass**.
+- **Submitted.** All 12 prompt behaviours and all 11 bot requirements verified against the code, not from memory.
