@@ -60,13 +60,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done & verified.
 ## Submission
 | # | Item | Status |
 |---|---|---|
-| S1 | Public GitHub repo | [ ] awaiting push |
+| S1 | Public GitHub repo | [x] https://github.com/Crypto-star/northstar-homes-ai-agent |
 | S2 | Final prompt in repo | [x] `PROMPT.md` |
 | S3 | Source code | [x] `backend/`, `frontend/` |
 | S4 | README (run, assumptions, limitations, AI tools) | [x] `README.md` |
 | S5 | `.env.example` | [x] |
-| S6 | Demo video | [~] recorded + narrated, assembling |
-| S7 | Email to aditi@huvo.ai, CC nikhil/vaibhav/rohit@huvo.ai | [ ] draft ready in `docs/EMAIL.md` |
+| S6 | Demo video | [x] `demo/edit/final.mp4` — 3:10, 1920x1080, ElevenLabs voiceover, 83 burned-in captions. Needs uploading to Drive/YouTube for the link. |
+| S7 | Email to aditi@huvo.ai, CC nikhil/vaibhav/rohit@huvo.ai | [~] draft in `docs/EMAIL.md`; needs the video link pasting in |
 
 ## Build log
 - Read PDF, confirmed Groq `qwen/qwen3.6-27b` (131k ctx); `reasoning_effort:"none"` suppresses `<think>`.
@@ -76,4 +76,6 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done & verified.
 - Researched production voice-agent prompting (Vapi, Deepgram, OpenAI Realtime, Retell, ElevenLabs). Prompt v2: compressed the 20-item banlist to five categories plus a principle (Vapi names long banlists as an anti-pattern), added the pre-computed price table, refusal budgeting, anti-stall, identity lock, and per-tool `Use when / Do NOT use when`.
 - Found Qwen leaking raw `<tool_call>` XML into replies — stripped it and recovered the call so a booking is never silently lost.
 - Found the agent chaining book→escalate→end with no spoken turn on the system-down path. Added a forced tools-off reply.
-- **Final: 11/11 scenarios pass**, zero leaked tool markup.
+- Recorded the demo headless at 1080p. Two capture bugs found and fixed: an off-by-one wait predicate that made every beat sit through a 90-second timeout, and a fixed script that broke when the agent closed the conversation a turn early.
+- Local ffmpeg turned out to be built without libass or freetype, so the `subtitles`, `ass` and `drawtext` filters do not exist. Captions are rendered as PNG cards with Pillow and composited with `overlay` instead — no system changes needed.
+- **Final: 11/11 scenarios pass**, zero leaked tool markup, demo video rendered.

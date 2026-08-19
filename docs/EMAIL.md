@@ -10,7 +10,7 @@ Hi Aditi,
 
 Here is my submission for the Forward Deployed Engineer assignment.
 
-**Repository:** <PUBLIC_GITHUB_URL>
+**Repository:** https://github.com/Crypto-star/northstar-homes-ai-agent
 **Demo video:** <VIDEO_URL>
 
 A few notes that may save you time:

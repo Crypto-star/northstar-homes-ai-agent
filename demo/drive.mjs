@@ -111,6 +111,7 @@ for (const step of SCRIPT) {
     break;
   }
   mark(step.shot);
+  const beatStart = Date.now();
   // Count only settled agent output. The typing placeholder is also a
   // .msg.agent, so counting it would satisfy the wait before the reply lands.
   const settled = '.msg.agent:not([data-typing]), .annot';

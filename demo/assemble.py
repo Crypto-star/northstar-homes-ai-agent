@@ -27,6 +27,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "demo" / "raw"
 VO = ROOT / "demo" / "vo"
@@ -37,15 +39,26 @@ W, H, FPS = 1920, 1080, 30
 CRF = "18"          # visually lossless for screen content
 TAIL_PAD = 0.6      # seconds of held frame after each beat's narration ends
 
-# YouTube-style captions: short chunks, sentence case, heavy outline, sat above
-# the bottom edge so the composer bar stays readable underneath.
-SUB_STYLE = (
-    "FontName=Helvetica,FontSize=17,Bold=1,"
-    "PrimaryColour=&H00FFFFFF,OutlineColour=&HC0000000,BackColour=&H00000000,"
-    "BorderStyle=1,Outline=3,Shadow=1,"
-    "Alignment=2,MarginV=48"
-)
+# YouTube-style captions: short chunks, sentence case, white on a heavy dark
+# outline, sat above the bottom edge so the composer bar stays readable.
+#
+# Written as ASS rather than SRT + force_style. force_style values are packed
+# into one filter-graph argument, so every comma and colon inside them has to be
+# escaped, and ffmpeg 8 rejects several spellings that used to work. An ASS file
+# carries its own style block and needs no escaping at all.
 WORDS_PER_CAPTION = 6
+
+CAPS = EDIT / "captions"
+
+# Caption band geometry, in 1920x1080 space.
+CAP_FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+CAP_SIZE = 46
+CAP_MAX_W = 1440           # wrap width; keeps lines short and readable
+CAP_BOTTOM = 58            # distance from the bottom edge to the band's base
+CAP_PAD_X, CAP_PAD_Y = 26, 14
+CAP_RADIUS = 6
+CAP_BG = (18, 18, 20, 214)  # near-black plate, the YouTube treatment
+CAP_FG = (255, 255, 255, 255)
 
 
 def run(cmd: list[str]) -> None:
@@ -62,34 +75,94 @@ def probe_duration(path: Path) -> float:
     return float(out)
 
 
-def srt_time(t: float) -> str:
-    if t < 0:
-        t = 0.0
-    h, rem = divmod(t, 3600)
-    m, s = divmod(rem, 60)
-    return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{round((s % 1) * 1000):03d}"
+def _wrap(draw, text: str, font, max_w: int) -> list[str]:
+    lines, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if draw.textlength(trial, font=font) <= max_w or not line:
+            line = trial
+        else:
+            lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+    return lines
 
 
-def build_srt(entries: list[tuple[float, float, str]], path: Path) -> None:
-    lines = []
-    for i, (start, end, text) in enumerate(entries, 1):
-        lines += [str(i), f"{srt_time(start)} --> {srt_time(end)}", text, ""]
-    path.write_text("\n".join(lines), encoding="utf-8")
+def render_caption(text: str, path: Path) -> tuple[int, int]:
+    """Draw one caption card as a transparent PNG. Returns its size.
+
+    This ffmpeg build has no libass and no freetype, so the subtitles, ass and
+    drawtext filters do not exist. Rendering the cards ourselves and compositing
+    them with the plain overlay filter needs nothing extra from ffmpeg.
+    """
+    font = ImageFont.truetype(CAP_FONT, CAP_SIZE)
+    probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    lines = _wrap(probe, text, font, CAP_MAX_W)
+
+    widths = [probe.textlength(ln, font=font) for ln in lines]
+    line_h = CAP_SIZE + 12
+    w = int(max(widths)) + CAP_PAD_X * 2
+    h = line_h * len(lines) + CAP_PAD_Y * 2
+
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=CAP_RADIUS, fill=CAP_BG)
+    for i, ln in enumerate(lines):
+        x = (w - widths[i]) / 2
+        d.text((x, CAP_PAD_Y + i * line_h), ln, font=font, fill=CAP_FG)
+    img.save(path)
+    return w, h
+
+
+MIN_CAPTION_WORDS = 3
+MAX_CAPTION_GAP = 1.2
 
 
 def chunk_words(words: list[dict], size: int) -> list[tuple[float, float, str]]:
-    """Group words into caption cards, breaking early on sentence-final punctuation."""
-    out, buf = [], []
+    """Group words into caption cards, breaking early on sentence-final punctuation.
+
+    Two rules beyond the obvious. A trailing one- or two-word card reads as a
+    flicker, so a short group merges back into the one before it. And a card
+    holds until the next one starts, as long as the pause is short — otherwise
+    the caption blinks out during every breath the narrator takes.
+    """
+    groups: list[list[dict]] = []
+    buf: list[dict] = []
     for w in words:
         buf.append(w)
         ends_sentence = w["word"].rstrip('"\')').endswith((".", "?", "!", ":"))
         if len(buf) >= size or ends_sentence:
-            out.append((buf[0]["start"], buf[-1]["end"],
-                        " ".join(x["word"] for x in buf)))
+            groups.append(buf)
             buf = []
     if buf:
-        out.append((buf[0]["start"], buf[-1]["end"], " ".join(x["word"] for x in buf)))
+        groups.append(buf)
+
+    merged: list[list[dict]] = []
+    for g in groups:
+        if merged and len(g) < MIN_CAPTION_WORDS:
+            merged[-1].extend(g)
+        else:
+            merged.append(g)
+
+    out = [(g[0]["start"], g[-1]["end"], " ".join(x["word"] for x in g))
+           for g in merged]
+    for i in range(len(out) - 1):
+        start, end, text = out[i]
+        next_start = out[i + 1][0]
+        if next_start - end <= MAX_CAPTION_GAP:
+            out[i] = (start, next_start, text)
     return out
+
+
+def emit_audio(name: str, target: float) -> None:
+    """Silence-pad a beat's narration to the segment length, with edge fades."""
+    run(["ffmpeg", "-y", "-i", str(VO / f"{name}.mp3"),
+         "-af", (f"apad=whole_dur={target:.3f},"
+                 f"afade=t=in:st=0:d=0.03,"
+                 f"afade=t=out:st={max(target - 0.03, 0):.3f}:d=0.03"),
+         "-t", f"{target:.3f}", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+         str(SEG / f"{name}.m4a")])
 
 
 def main() -> int:
@@ -103,7 +176,6 @@ def main() -> int:
 
     beats = json.loads(beats_file.read_text())
     timings = json.loads((VO / "timings.json").read_text())
-    vo_by_beat = {t["beat"]: t for t in timings}
 
     src_duration = probe_duration(source)
     shutil.rmtree(SEG, ignore_errors=True)
@@ -115,19 +187,49 @@ def main() -> int:
         end = beats[i + 1]["t"] if i + 1 < len(beats) else src_duration
         windows.append((b["name"], b["t"], min(end, src_duration)))
 
+    win_by_name = {name: (start, end) for name, start, end in windows}
+
     subtitle_entries: list[tuple[float, float, str]] = []
     concat_lines: list[str] = []
     audio_inputs: list[Path] = []
     timeline = 0.0
+    last_window: tuple[float, float] | None = None
 
-    for name, start, end in windows:
-        vo = vo_by_beat.get(name)
-        if vo is None:
-            continue
-        video_len = max(end - start, 0.1)
+    # Iterate in NARRATION order, not recording order. The agent decides when to
+    # close, so it can end a turn early and leave a scripted beat with no footage
+    # of its own. That narration still has to play, over a held frame of whatever
+    # was last on screen, rather than being silently dropped.
+    for vo in timings:
+        name = vo["beat"]
         target = vo["duration"] + TAIL_PAD
-
         seg = SEG / f"{name}.mp4"
+
+        if name not in win_by_name:
+            if last_window is None:
+                print(f"{name:20s} SKIPPED — no footage and nothing preceding it")
+                continue
+            freeze_at = max(last_window[1] - 0.15, last_window[0])
+            print(f"{name:20s} no footage -> holding frame at {freeze_at:6.2f}s")
+            run(["ffmpeg", "-y", "-ss", f"{freeze_at:.3f}", "-i", str(source),
+                 "-frames:v", "1", "-q:v", "2", str(SEG / f"{name}.png")])
+            run(["ffmpeg", "-y", "-loop", "1", "-i", str(SEG / f"{name}.png"),
+                 "-t", f"{target:.3f}", "-an",
+                 "-vf", f"scale={W}:{H}:flags=lanczos,fps={FPS},format=yuv420p",
+                 "-c:v", "libx264", "-preset", "medium", "-crf", CRF,
+                 "-pix_fmt", "yuv420p", "-r", str(FPS),
+                 "-video_track_timescale", "90000", str(seg)])
+            emit_audio(name, target)
+            for ws, we, text in chunk_words(vo["words"], WORDS_PER_CAPTION):
+                subtitle_entries.append((timeline + ws, timeline + we, text))
+            concat_lines.append(f"file '{seg.as_posix()}'")
+            audio_inputs.append(SEG / f"{name}.m4a")
+            timeline += target
+            continue
+
+        start, end = win_by_name[name]
+        last_window = (start, end)
+        video_len = max(end - start, 0.1)
+
         if target > video_len:
             # Narration outlasts the action: play the slice, then hold its last
             # frame. tpad is frame-accurate and avoids a visible re-loop.
@@ -148,15 +250,8 @@ def main() -> int:
              "-pix_fmt", "yuv420p", "-r", str(FPS),
              "-video_track_timescale", "90000", str(seg)])
 
-        # Silence-pad this beat's narration out to the segment length so the
-        # audio track concatenates 1:1 with the video and never drifts.
+        emit_audio(name, target)
         apad = SEG / f"{name}.m4a"
-        run(["ffmpeg", "-y", "-i", str(VO / f"{name}.mp3"),
-             "-af", (f"apad=whole_dur={target:.3f},"
-                     f"afade=t=in:st=0:d=0.03,"
-                     f"afade=t=out:st={max(target - 0.03, 0):.3f}:d=0.03"),
-             "-t", f"{target:.3f}", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-             str(apad)])
 
         for word_start, word_end, text in chunk_words(vo["words"], WORDS_PER_CAPTION):
             subtitle_entries.append((timeline + word_start, timeline + word_end, text))
@@ -178,14 +273,29 @@ def main() -> int:
     run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(audio_list),
          "-c", "copy", str(voice)])
 
-    srt = EDIT / "master.srt"
-    build_srt(subtitle_entries, srt)
+    # Render every caption card, then composite them in one pass.
+    shutil.rmtree(CAPS, ignore_errors=True)
+    CAPS.mkdir(parents=True, exist_ok=True)
+    inputs: list[str] = []
+    filters: list[str] = []
+    label = "0:v"
+    for i, (start, end, text) in enumerate(subtitle_entries):
+        png = CAPS / f"{i:04d}.png"
+        _, h = render_caption(text, png)
+        inputs += ["-i", str(png)]
+        nxt = f"c{i}"
+        filters.append(
+            f"[{label}][{i + 1}:v]overlay=x=(W-w)/2:y=H-{CAP_BOTTOM}-{h}:"
+            f"enable='between(t,{start:.3f},{end:.3f})'[{nxt}]"
+        )
+        label = nxt
+    print(f"compositing {len(subtitle_entries)} caption cards")
 
     # Subtitles are burned last, after audio is muxed — nothing can cover them.
     final = EDIT / "final.mp4"
-    run(["ffmpeg", "-y", "-i", str(silent), "-i", str(voice),
-         "-vf", f"subtitles='{srt.as_posix()}':force_style='{SUB_STYLE}'",
-         "-map", "0:v:0", "-map", "1:a:0",
+    run(["ffmpeg", "-y", "-i", str(silent), *inputs, "-i", str(voice),
+         "-filter_complex", ";".join(filters),
+         "-map", f"[{label}]", "-map", f"{len(subtitle_entries) + 1}:a:0",
          "-c:v", "libx264", "-preset", "slow", "-crf", CRF, "-pix_fmt", "yuv420p",
          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest",
          str(final)])
