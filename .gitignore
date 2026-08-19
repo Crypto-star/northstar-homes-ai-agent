@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+demo/raw/
+demo/work/
+*.mp4.tmp
+.DS_Store
+demo/edit/
+demo/vo/
+node_modules

@@ -1,0 +1,58 @@
+[
+  {
+    "beat": "intro",
+    "text": "This is an AI sales agent for Northstar One, a fictional real estate project in Sector 79, Gurugram. The backend is FastAPI, the model is Qwen three point six on Groq, and the interface is static HTML that can sit on GitHub Pages. On the left is the entire knowledge base this agent is allowed to know. Four facts. Everything else, it has to admit it does not have."
+  },
+  {
+    "beat": "01-hinglish",
+    "text": "The customer opens in Hinglish. The prompt makes the agent check the language and the script of every incoming message and mirror it, so a roman script question gets a roman script answer, never English."
+  },
+  {
+    "beat": "02-price",
+    "text": "It gives the published starting price and nothing beyond it. The prompt hands the model the exact spoken form of each price in all three languages, because converting crore and lakh figures on the fly is where numbers get misstated."
+  },
+  {
+    "beat": "03-discount",
+    "text": "Now the hard part. The customer pushes for a discount. The agent has no pricing authority and it says so plainly. No percentage, no maybe, no let me see what I can do."
+  },
+  {
+    "beat": "04-unknown",
+    "text": "Carpet area and possession date are not in the knowledge base, so the agent does not have them. It refuses to soften that into an estimate, and offers the one real path forward instead."
+  },
+  {
+    "beat": "05-visit",
+    "text": "The customer agrees to a site visit. The agent collects details one at a time, and never asks for something the customer already gave it."
+  },
+  {
+    "beat": "06-details",
+    "text": "Name and number captured, and read back exactly once. Qualification answers never get read back. Only booking details, where being exact actually matters."
+  },
+  {
+    "beat": "07-booking-failed",
+    "text": "And here is the booking failure. That eleven o'clock slot is already taken. The tool returns a machine readable reason, and the agent turns it into a human sentence and offers alternatives in the same reply. It never claims a booking the system did not confirm."
+  },
+  {
+    "beat": "08-retry",
+    "text": "The customer picks a different slot, and the agent confirms just the change."
+  },
+  {
+    "beat": "09-booked",
+    "text": "This time it succeeds. Only now does the agent confirm the visit, with a real booking reference from the system."
+  },
+  {
+    "beat": "10-closed",
+    "text": "Then it closes properly and ends the conversation. Every conversation gets a real ending, whether that is a booking, a callback, or a customer asking never to be contacted again."
+  },
+  {
+    "beat": "analytics",
+    "text": "When the conversation ends, a second model pass turns the transcript into one CRM record. Budget, budget fit, configuration, interest level, a qualification score, objections raised, site visit status, follow up, and escalation flags."
+  },
+  {
+    "beat": "json",
+    "text": "Here is the raw JSON a CRM would ingest. The site visit status comes from the booking system, not from the model, so the agent cannot talk its way into a confirmation that never happened."
+  },
+  {
+    "beat": "outro",
+    "text": "Eleven scripted scenarios test all of this. Discount pressure, prompt injection, a do not contact request, a Devanagari lead below budget, and a booking system that is completely down. All eleven pass. The prompt, the reasoning behind it, and every transcript are in the repository."
+  }
+]
